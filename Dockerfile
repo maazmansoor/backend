@@ -51,4 +51,4 @@ RUN mkdir -p uploads outputs
 EXPOSE 8080
 
 # Start command
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "app:app", "--timeout", "300", "--workers", "1"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "app:app", "--timeout", "900", "--workers", "1"]
