@@ -1,43 +1,18 @@
+# Use an official Python runtime as a parent image
 FROM python:3.10-slim
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    libgl1-mesa-glx \
-    libglib2.0-0 \
-    libsm6 \
-    libxext6 \
-    libxrender-dev \
-    libgomp1 \
-    libgthread-2.0-0 \
-    ffmpeg \
-    git \
-    && rm -rf /var/lib/apt/lists/*
-
-# Set working directory
+# Set the working directory
 WORKDIR /app
 
-# Set environment variables
-ENV OPENCV_HEADLESS=1
-ENV LIBGL_ALWAYS_SOFTWARE=1
-ENV LIBGL_ALWAYS_INDIRECT=1
-ENV QT_QPA_PLATFORM=offscreen
-ENV MPLBACKEND=Agg
-ENV OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS=0
-
-# Copy requirements first for better caching
+# Copy requirements and install dependencies
 COPY requirements.txt .
-
-# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Copy the rest of the application code
 COPY . .
 
-# Create necessary directories
-RUN mkdir -p uploads outputs
+# Expose the port (default 8000, but Railway sets $PORT)
+EXPOSE 8000
 
-# Expose port
-EXPOSE $PORT
-
-# Start command
-CMD gunicorn --bind 0.0.0.0:$PORT app:app --timeout 300 --workers 1
+# Start the app using Gunicorn, binding to $PORT
+CMD ["gunicorn", "--bind", "0.0.0.0:${PORT}", "app:app"]
