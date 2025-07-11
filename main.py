@@ -1,10 +1,13 @@
 import os
 import sys
 
-# Set OpenCV environment variables before import
+# Set ALL OpenCV environment variables before any imports
 os.environ['OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS'] = '0'
 os.environ['LIBGL_ALWAYS_INDIRECT'] = '1'
 os.environ['LIBGL_ALWAYS_SOFTWARE'] = '1'
+os.environ['OPENCV_HEADLESS'] = '1'  # This is crucial
+os.environ['QT_QPA_PLATFORM'] = 'offscreen'  # Disable Qt GUI
+os.environ['MPLBACKEND'] = 'Agg'  # Use non-interactive matplotlib backend
 
 try:
     import cv2

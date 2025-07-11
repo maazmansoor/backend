@@ -14,10 +14,33 @@ nixPkgs = [
   "xorg.libXcursor", 
   "xorg.libXinerama", 
   "xorg.libXxf86vm",
+  "xorg.libXtst",
+  "xorg.libXScrnSaver",
+  "fontconfig",
+  "freetype",
   "pkg-config",
   "gcc",
-  "glibc"
+  "glibc",
+  "glib",
+  "gtk3",
+  "cairo",
+  "pango",
+  "harfbuzz",
+  "gdk-pixbuf",
+  "atk"
 ]
+
+[phases.install]
+cmds = [
+  "pip install --no-cache-dir -r requirements.txt"
+]
+
+[variables]
+OPENCV_HEADLESS = "1"
+LIBGL_ALWAYS_SOFTWARE = "1"
+LIBGL_ALWAYS_INDIRECT = "1"
+QT_QPA_PLATFORM = "offscreen"
+MPLBACKEND = "Agg"
 
 [start]
 cmd = "gunicorn --bind 0.0.0.0:$PORT app:app"
