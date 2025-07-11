@@ -1,8 +1,0 @@
-[phases.setup]
-nixPkgs = ["python310", "python310Packages.pip", "python310Packages.setuptools", "python310Packages.wheel", "mesa", "libGL", "libGLU", "pkg-config"]
-
-[phases.build]
-cmds = ["python3 -m venv --copies /opt/venv", ". /opt/venv/bin/activate && pip install -r requirements.txt"]
-
-[start]
-cmd = "gunicorn --bind 0.0.0.0:$PORT app:app"
