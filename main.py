@@ -340,14 +340,15 @@ def analyze_video(input_path, output_path):
     return final_stats
 
 
-    def main(input_path, output_path):
-     stats = analyze_video(input_path, output_path)
-     return stats
+# These should be at the module level, not inside analyze_video
+def main(input_path, output_path):
+    stats = analyze_video(input_path, output_path)
+    return stats
 
-    if __name__ == "__main__":
-      stats = main("your_default_input.mp4", "your_default_output.mp4")
-      import json
-      print(json.dumps(stats, indent=4))
+if __name__ == "__main__":
+    stats = main("your_default_input.mp4", "your_default_output.mp4")
+    import json
+    print(json.dumps(stats, indent=4))
 
 
  
