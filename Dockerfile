@@ -15,4 +15,4 @@ COPY . .
 EXPOSE 8000
 
 # Start the app using Gunicorn, binding to $PORT
-CMD ["gunicorn", "--bind", "0.0.0.0:${PORT}", "app:app"]
+CMD gunicorn --bind 0.0.0.0:$PORT app:app
