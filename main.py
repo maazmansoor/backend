@@ -8,6 +8,11 @@ os.environ['LIBGL_ALWAYS_SOFTWARE'] = '1'
 os.environ['OPENCV_HEADLESS'] = '1'  # This is crucial
 os.environ['QT_QPA_PLATFORM'] = 'offscreen'  # Disable Qt GUI
 os.environ['MPLBACKEND'] = 'Agg'  # Use non-interactive matplotlib backend
+os.environ['DISPLAY'] = ':99'  # Set a virtual display
+
+# Additional headless environment variables
+os.environ['OPENCV_IO_ENABLE_OPENEXR'] = '0'
+os.environ['OPENCV_IO_ENABLE_JASPER'] = '0'
 
 try:
     import cv2
