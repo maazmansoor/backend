@@ -312,16 +312,16 @@ def analyze_video(input_path, output_path):
 
         out.write(annotated_frame)
         # Only show window if running as script
-        if __name__ == "__main__":
-            cv2.imshow("Cricket Analysis", annotated_frame)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
+       # if __name__ == "__main__":
+        #    cv2.imshow("Cricket Analysis", annotated_frame)
+        #    if cv2.waitKey(1) & 0xFF == ord('q'):
+        #        break
 
     # Cleanup
     cap.release()
     out.release()
-    if __name__ == "__main__":
-        cv2.destroyAllWindows()
+    #if __name__ == "__main__":
+      #  cv2.destroyAllWindows()
     print(f"\nProcessing complete. Output saved to {output_path}")
 
     # --- Final Statistics ---
@@ -339,20 +339,18 @@ def analyze_video(input_path, output_path):
     
     return final_stats
 
-def main():
-    """Standalone script entry point."""
-    input_path = 'Virat Kohli batting on a Green wicket _ Bold Diaries.mp4'
-    output_path = 'cricket_analysis_final_4.mp4'
-    stats = analyze_video(input_path, output_path)
-    print("\n--- Analysis Report ---")
-    import json
-    print(json.dumps(stats, indent=4))
 
-if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        print("\nProcessing interrupted by user.")
+    def main(input_path, output_path):
+     stats = analyze_video(input_path, output_path)
+     return stats
+
+    if __name__ == "__main__":
+      stats = main("your_default_input.mp4", "your_default_output.mp4")
+      import json
+      print(json.dumps(stats, indent=4))
+
+
+ 
 
 
 
