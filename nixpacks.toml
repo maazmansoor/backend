@@ -27,12 +27,18 @@ nixPkgs = [
   "pango",
   "harfbuzz",
   "gdk-pixbuf",
-  "atk"
+  "atk",
+  "ffmpeg"
 ]
 
 [phases.install]
 cmds = [
-  "pip install --no-cache-dir -r requirements.txt"
+  "pip install --upgrade pip setuptools wheel",
+  "pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu",
+  "pip install --no-cache-dir opencv-python-headless",
+  "pip install --no-cache-dir ultralytics",
+  "pip install --no-cache-dir Flask gunicorn werkzeug",
+  "pip install --no-cache-dir numpy Pillow PyYAML matplotlib seaborn scipy"
 ]
 
 [variables]
@@ -41,6 +47,7 @@ LIBGL_ALWAYS_SOFTWARE = "1"
 LIBGL_ALWAYS_INDIRECT = "1"
 QT_QPA_PLATFORM = "offscreen"
 MPLBACKEND = "Agg"
+OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS = "0"
 
 [start]
-cmd = "gunicorn --bind 0.0.0.0:$PORT app:app"
+cmd = "gunicorn --bind 0.0.0.0:$PORT app:app --timeout 300 --workers 1"
