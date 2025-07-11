@@ -1,0 +1,23 @@
+[phases.setup]
+nixPkgs = [
+  "python310", 
+  "python310Packages.pip", 
+  "mesa", 
+  "libGL", 
+  "libGLU", 
+  "libglvnd", 
+  "xorg.libX11", 
+  "xorg.libXext", 
+  "xorg.libXrender", 
+  "xorg.libXi", 
+  "xorg.libXrandr", 
+  "xorg.libXcursor", 
+  "xorg.libXinerama", 
+  "xorg.libXxf86vm",
+  "pkg-config",
+  "gcc",
+  "glibc"
+]
+
+[start]
+cmd = "gunicorn --bind 0.0.0.0:$PORT app:app"

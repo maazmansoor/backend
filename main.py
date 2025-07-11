@@ -1,8 +1,27 @@
-import cv2
+import os
+import sys
+
+# Set OpenCV environment variables before import
+os.environ['OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS'] = '0'
+os.environ['LIBGL_ALWAYS_INDIRECT'] = '1'
+os.environ['LIBGL_ALWAYS_SOFTWARE'] = '1'
+
+try:
+    import cv2
+    print("OpenCV imported successfully")
+except ImportError as e:
+    print(f"OpenCV import error: {e}")
+    # You could potentially use a fallback or handle the error
+    raise
+
 import numpy as np
 from ultralytics import YOLO
 from collections import deque
 import math
+import cv2
+import numpy as np
+from ultralytics import YOLO
+from collections import deque
 
 # --- Model Loading ---
 # Load YOLO models for bat, ball, stump, and pose detection
