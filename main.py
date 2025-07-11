@@ -1,5 +1,6 @@
 import os
 import sys
+import torch
 
 # Set ALL OpenCV environment variables before any imports
 os.environ['OPENCV_VIDEOIO_MSMF_ENABLE_HW_TRANSFORMS'] = '0'
@@ -30,6 +31,7 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 from collections import deque
+import torch
 
 # --- Model Loading ---
 # Load YOLO models for bat, ball, stump, and pose detection
@@ -261,13 +263,18 @@ def analyze_video(input_path, output_path):
             break
         
         processing_stats['frame_count'] += 1
+        # --- Object Detection ---
+        with torch.no_grad():
+            bat_results = bat_model(frame, conf=0.40, verbose=False)
+            ball_results = ball_model(frame, conf=0.35, verbose=False)
+            pose_results = pose_model(frame, conf=0.50, verbose=False)
+
         annotated_frame = frame.copy()
         bat_centers, ball_centers = [], []
           
         # Bat Detection
-        results_bat = bat_model(frame, conf=0.25, verbose=False) # Lowered confidence
-        if results_bat and results_bat[0].boxes:
-            for box in results_bat[0].boxes:
+        if bat_results and bat_results[0].boxes:
+            for box in bat_results[0].boxes:
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
                 bat_center = ((x1 + x2) // 2, (y1 + y2) // 2)
                 bat_centers.append(bat_center)
@@ -276,9 +283,8 @@ def analyze_video(input_path, output_path):
                 cv2.putText(annotated_frame, f"Bat ({box.conf.item():.2f})", (x1, y1 - 10), FONT, 0.5, (0, 165, 255), 2)
           
         # Ball Detection
-        results_ball = ball_model(frame, conf=0.15, verbose=False) # Lowered confidence
-        if results_ball and results_ball[0].boxes:
-            detections = [b for b in results_ball[0].boxes if ball_class_index == -1 or int(b.cls) == ball_class_index]
+        if ball_results and ball_results[0].boxes:
+            detections = [b for b in ball_results[0].boxes if ball_class_index == -1 or int(b.cls) == ball_class_index]
             for box in detections:
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
                 ball_center = ((x1 + x2) // 2, (y1 + y2) // 2)
@@ -288,14 +294,13 @@ def analyze_video(input_path, output_path):
                 cv2.putText(annotated_frame, f"Ball ({box.conf.item():.2f})", (x1, y1 - 10), FONT, 0.5, (0, 255, 255), 2)
           
         # Pose Detection (Wrist Tracking)
-        results_pose = pose_model(frame, verbose=False)
-        if results_pose and results_pose[0].keypoints is not None and bat_centers:
+        if pose_results and pose_results[0].keypoints is not None and bat_centers:
             bat_center = bat_centers[0] # Assume primary bat
             min_dist_to_bat = float('inf')
             best_batsman_idx = -1
 
             # Find the person closest to the bat
-            for i, person_kps_obj in enumerate(results_pose[0].keypoints):
+            for i, person_kps_obj in enumerate(pose_results[0].keypoints):
                 person_kps = person_kps_obj.data[0]
                 left_wrist_conf = person_kps[9, 2] if len(person_kps) > 9 else 0
                 right_wrist_conf = person_kps[10, 2] if len(person_kps) > 10 else 0
@@ -312,7 +317,7 @@ def analyze_video(input_path, output_path):
 
             # If a batsman is linked, track their wrists
             if best_batsman_idx != -1:
-                batsman_kps_tensor = results_pose[0].keypoints[best_batsman_idx].data[0]
+                batsman_kps_tensor = pose_results[0].keypoints[best_batsman_idx].data[0]
                 left_wrist = batsman_kps_tensor[9, :2] if len(batsman_kps_tensor) > 9 and batsman_kps_tensor[9, 2] > 0.5 else None
                 right_wrist = batsman_kps_tensor[10, :2] if len(batsman_kps_tensor) > 10 and batsman_kps_tensor[10, 2] > 0.5 else None
                 
