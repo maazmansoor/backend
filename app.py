@@ -78,8 +78,12 @@ def get_processed_video(filename):
 def index():
     return 'Cricket Ball Tracking API. POST a video to /analyze.'
 
+@app.route('/health')
+def health_check():
+    """Health check endpoint for Railway"""
+    return jsonify({'status': 'healthy', 'message': 'Cricket Ball Tracking API is running'})
+
 if __name__ == '__main__':
-    # Use 0.0.0.0 to make the app accessible on your local network
-    # use_reloader=False is important to prevent the server from restarting
-    # due to the AI model loading, which can cause connection issues.
-    app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False) 
+    # Get port from environment variable or default to 5000
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
