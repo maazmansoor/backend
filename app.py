@@ -224,6 +224,7 @@
 #     port = int(os.environ.get('PORT', 5000))
 #     app.run(host='0.0.0.0', port=port, debug=False)
 
+
 from flask import Flask, request, send_file, jsonify, url_for
 from flask_cors import CORS
 import os
@@ -305,12 +306,17 @@ def handle_chunked_upload():
     
     chunk_path = os.path.join(temp_dir, f"chunk_{chunk_number}")
 
-    # The incoming data is a base64 string. We must decode it to get the binary data.
+    # The incoming data is a JSON payload with a base64 string.
     try:
-        decoded_data = base64.b64decode(request.data)
+        data = request.get_json()
+        if not data or 'chunk' not in data:
+            return jsonify({'error': 'Invalid JSON payload or missing chunk data'}), 400
+        
+        chunk_data = data['chunk']
+        decoded_data = base64.b64decode(chunk_data)
     except Exception as e:
-        app.logger.error(f"Base64 decoding failed for chunk {chunk_number} of {upload_id}: {e}")
-        return jsonify({'error': 'Invalid Base64 data in chunk'}), 400
+        app.logger.error(f"JSON or Base64 decoding failed for chunk {chunk_number} of {upload_id}: {e}")
+        return jsonify({'error': 'Invalid JSON or Base64 data in chunk'}), 400
 
     with open(chunk_path, "wb") as f:
         f.write(decoded_data)
