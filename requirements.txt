@@ -1,7 +1,7 @@
 Flask==2.3.3
 gunicorn==21.2.0
 opencv-python-headless==4.8.1.78
-numpy==1.24.32.0
+numpy
 ultralytics==8.0.196
 werkzeug==2.3.7
 Pillow==10.0.1
