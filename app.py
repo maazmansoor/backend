@@ -227,6 +227,7 @@
 from flask import Flask, request, send_file, jsonify, url_for
 from flask_cors import CORS
 import os
+import logging
 from werkzeug.utils import secure_filename
 import datetime
 import uuid
@@ -240,7 +241,13 @@ OUTPUT_FOLDER = 'outputs'
 ALLOWED_EXTENSIONS = {'mp4', 'avi', 'mov', 'mkv'}
 
 app = Flask(__name__)
-CORS(app) # Enable CORS for all routes
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+
+# Be more specific with CORS for production
+CORS(app, resources={r"/api/*": {"origins": "*"}})
+CORS(app)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['OUTPUT_FOLDER'] = OUTPUT_FOLDER
 
@@ -276,15 +283,20 @@ def handle_analysis_request():
     Handles video upload, starts analysis in the background, 
     and returns a job ID.
     """
+    app.logger.info("Received a request to /analyze")
     if 'video' not in request.files:
+        app.logger.warning("No video file provided in the request")
         return jsonify({'error': 'No video file provided'}), 400
     
     video = request.files['video']
+    app.logger.info(f"Received video file: {video.filename}")
     
     if video.filename == '':
+        app.logger.warning("No file selected (empty filename)")
         return jsonify({'error': 'No selected file'}), 400
         
     if not video.filename or not allowed_file(video.filename):
+        app.logger.warning(f"Unsupported file type: {video.filename}")
         return jsonify({'error': 'Unsupported file type'}), 400
     
     timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
@@ -296,8 +308,10 @@ def handle_analysis_request():
     output_path = os.path.join(app.config['OUTPUT_FOLDER'], output_filename)
     
     video.save(input_path)
+    app.logger.info(f"Video saved to {input_path}")
     
     job_id = str(uuid.uuid4())
+    app.logger.info(f"Created job ID: {job_id}")
     
     # Start the analysis in a background thread
     thread = threading.Thread(
@@ -308,12 +322,15 @@ def handle_analysis_request():
     
     # Store initial job status
     JOBS[job_id] = {'status': 'processing'}
+    app.logger.info(f"Job {job_id} status set to 'processing'")
     
     # Return the job ID to the client
+    status_url = url_for('get_analysis_result', job_id=job_id, _external=True)
+    app.logger.info(f"Responding to client with job_id: {job_id} and status_url: {status_url}")
     return jsonify({
         'message': 'Analysis started.',
         'job_id': job_id,
-        'status_url': url_for('get_analysis_result', job_id=job_id, _external=True)
+        'status_url': status_url
     }), 202
 
 @app.route('/results/<job_id>', methods=['GET'])
@@ -343,6 +360,7 @@ def get_analysis_result(job_id):
 @app.route('/videos/<filename>')
 def get_processed_video(filename):
     """Serves the processed video files."""
+    app.logger.info(f"Serving video file: {filename}")
     return send_file(os.path.join(app.config['OUTPUT_FOLDER'], filename), as_attachment=True)
 
 @app.route('/')
