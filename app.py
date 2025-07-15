@@ -249,15 +249,19 @@ app = Flask(__name__)
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
-# Be more specific with CORS for production, especially allowing custom headers.
-CORS(
-    app, 
+# Set up a more explicit and permissive CORS configuration for production.
+# This explicitly allows the necessary methods and all custom headers.
+CORS(app, 
     resources={r"/*": {"origins": "*"}}, 
     allow_headers=[
-        "Content-Type", "X-Upload-ID", "X-Chunk-Number", 
-        "X-Total-Chunks", "X-File-Name"
-    ]
+        "Content-Type", "Authorization", "X-Requested-With",
+        "Content-Length", "Accept", "Origin", "X-Upload-ID", 
+        "X-Chunk-Number", "X-Total-Chunks", "X-File-Name"
+    ],
+    methods=["POST", "OPTIONS"],
+    max_age=86400
 )
+
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['OUTPUT_FOLDER'] = OUTPUT_FOLDER
 app.config['TEMP_FOLDER'] = TEMP_FOLDER
