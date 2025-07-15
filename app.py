@@ -233,6 +233,7 @@ import datetime
 import uuid
 import threading
 import shutil
+import base64
 
 # Import the analyze_video function from main.py
 from main import analyze_video
@@ -303,12 +304,20 @@ def handle_chunked_upload():
     os.makedirs(temp_dir, exist_ok=True)
     
     chunk_path = os.path.join(temp_dir, f"chunk_{chunk_number}")
+
+    # The incoming data is a base64 string. We must decode it to get the binary data.
+    try:
+        decoded_data = base64.b64decode(request.data)
+    except Exception as e:
+        app.logger.error(f"Base64 decoding failed for chunk {chunk_number} of {upload_id}: {e}")
+        return jsonify({'error': 'Invalid Base64 data in chunk'}), 400
+
     with open(chunk_path, "wb") as f:
-        f.write(request.data)
+        f.write(decoded_data)
 
-    app.logger.info(f"Saved chunk {chunk_number}/{total_chunks} for {upload_id}")
+    app.logger.info(f"Saved chunk {chunk_number + 1}/{total_chunks} for {upload_id}")
 
-    if chunk_number == total_chunks -1:
+    if chunk_number == total_chunks - 1:
         app.logger.info(f"Last chunk received for {upload_id}. Reassembling file.")
         
         # Reassemble the file
@@ -389,11 +398,6 @@ def health_check():
     return jsonify({'status': 'healthy', 'message': 'Cricket Ball Tracking API is running'})
 
 if __name__ == '__main__':
-    # Get port from environment variable or default to 5000
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)
-
-
     # Get port from environment variable or default to 5000
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
