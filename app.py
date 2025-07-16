@@ -224,54 +224,29 @@
 #     port = int(os.environ.get('PORT', 5000))
 #     app.run(host='0.0.0.0', port=port, debug=False)
 
-
 from flask import Flask, request, send_file, jsonify, url_for
 from flask_cors import CORS
 import os
-import logging
 from werkzeug.utils import secure_filename
 import datetime
 import uuid
 import threading
-import shutil
-import base64
 
 # Import the analyze_video function from main.py
 from main import analyze_video
 
 UPLOAD_FOLDER = 'uploads'
 OUTPUT_FOLDER = 'outputs'
-TEMP_FOLDER = 'temp_uploads'
 ALLOWED_EXTENSIONS = {'mp4', 'avi', 'mov', 'mkv'}
 
 app = Flask(__name__)
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-
-# Set up a more explicit and permissive CORS configuration for production.
-# This explicitly allows the necessary methods and all custom headers.
-CORS(app, 
-    resources={r"/*": {"origins": "*"}}, 
-    allow_headers=[
-        "Content-Type", "Authorization", "X-Requested-With",
-        "Content-Length", "Accept", "Origin", "X-Upload-ID", 
-        "X-Chunk-Number", "X-Total-Chunks", "X-File-Name"
-    ],
-    methods=["POST", "OPTIONS"],
-    max_age=86400
-)
-
+CORS(app) # Enable CORS for all routes
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['OUTPUT_FOLDER'] = OUTPUT_FOLDER
-app.config['TEMP_FOLDER'] = TEMP_FOLDER
 
-
-# Ensure the directories exist
+# Ensure the upload and output directories exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
-os.makedirs(TEMP_FOLDER, exist_ok=True)
-
 
 # In-memory dictionary to store job statuses.
 # In a production-grade application, you would use a database or Redis for this.
@@ -280,100 +255,66 @@ JOBS = {}
 def run_analysis_in_background(job_id, input_path, output_path):
     """A wrapper function to run video analysis and update job status."""
     try:
-        app.logger.info(f"--- Starting background analysis for job {job_id} ---")
+        print(f"--- Starting background analysis for job {job_id} ---")
         analysis_stats = analyze_video(input_path, output_path)
         JOBS[job_id] = {
             'status': 'complete',
             'stats': analysis_stats,
             'output_filename': os.path.basename(output_path)
         }
-        app.logger.info(f"--- Finished background analysis for job {job_id} ---")
+        print(f"--- Finished background analysis for job {job_id} ---")
     except Exception as e:
-        app.logger.error(f"!!! Analysis failed for job {job_id}: {e} !!!", exc_info=True)
+        print(f"!!! Analysis failed for job {job_id}: {e} !!!")
         JOBS[job_id] = {'status': 'failed', 'error': str(e)}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-@app.route('/upload', methods=['POST'])
-def handle_chunked_upload():
+@app.route('/analyze', methods=['POST'])
+def handle_analysis_request():
     """
-    Handles a chunk of a file upload. When the last chunk is received,
-    it reassembles the file and starts the analysis.
+    Handles video upload, starts analysis in the background, 
+    and returns a job ID.
     """
-    upload_id = request.headers.get('X-Upload-ID')
-    chunk_number = int(request.headers.get('X-Chunk-Number', -1))
-    total_chunks = int(request.headers.get('X-Total-Chunks', -1))
-    file_name = request.headers.get('X-File-Name')
-
-    if not all([upload_id, file_name, chunk_number > -1, total_chunks > -1]):
-        return jsonify({'error': 'Missing upload headers'}), 400
+    if 'video' not in request.files:
+        return jsonify({'error': 'No video file provided'}), 400
     
-    if not allowed_file(file_name):
+    video = request.files['video']
+    
+    if video.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+        
+    if not video.filename or not allowed_file(video.filename):
         return jsonify({'error': 'Unsupported file type'}), 400
-
-    temp_dir = os.path.join(app.config['TEMP_FOLDER'], upload_id)
-    os.makedirs(temp_dir, exist_ok=True)
     
-    chunk_path = os.path.join(temp_dir, f"chunk_{chunk_number}")
-
-    # The incoming data is a JSON payload with a base64 string.
-    try:
-        data = request.get_json()
-        if not data or 'chunk' not in data:
-            return jsonify({'error': 'Invalid JSON payload or missing chunk data'}), 400
-        
-        chunk_data = data['chunk']
-        decoded_data = base64.b64decode(chunk_data)
-    except Exception as e:
-        app.logger.error(f"JSON or Base64 decoding failed for chunk {chunk_number} of {upload_id}: {e}")
-        return jsonify({'error': 'Invalid JSON or Base64 data in chunk'}), 400
-
-    with open(chunk_path, "wb") as f:
-        f.write(decoded_data)
-
-    app.logger.info(f"Saved chunk {chunk_number + 1}/{total_chunks} for {upload_id}")
-
-    if chunk_number == total_chunks - 1:
-        app.logger.info(f"Last chunk received for {upload_id}. Reassembling file.")
-        
-        # Reassemble the file
-        timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-        original_filename = secure_filename(file_name)
-        input_filename = f"{timestamp}_{original_filename}"
-        output_filename = f"{timestamp}_processed_{original_filename}"
-        
-        input_path = os.path.join(app.config['UPLOAD_FOLDER'], input_filename)
-        output_path = os.path.join(app.config['OUTPUT_FOLDER'], output_filename)
-
-        with open(input_path, 'wb') as outfile:
-            for i in range(total_chunks):
-                chunk_file = os.path.join(temp_dir, f"chunk_{i}")
-                with open(chunk_file, 'rb') as infile:
-                    outfile.write(infile.read())
-        
-        shutil.rmtree(temp_dir) # Clean up temp directory
-        app.logger.info(f"File {input_filename} reassembled successfully. Starting analysis.")
-
-        # Start analysis in background
-        job_id = str(uuid.uuid4())
-        thread = threading.Thread(
-            target=run_analysis_in_background,
-            args=(job_id, input_path, output_path)
-        )
-        thread.start()
-        
-        JOBS[job_id] = {'status': 'processing'}
-        
-        status_url = url_for('get_analysis_result', job_id=job_id, _external=True)
-        return jsonify({
-            'message': 'Upload complete, analysis started.',
-            'job_id': job_id,
-            'status_url': status_url
-        }), 202
+    timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    original_filename = secure_filename(video.filename)
+    input_filename = f"{timestamp}_{original_filename}"
+    output_filename = f"{timestamp}_processed_{original_filename}"
     
-    return jsonify({'message': f'Chunk {chunk_number} received'}), 200
-
+    input_path = os.path.join(app.config['UPLOAD_FOLDER'], input_filename)
+    output_path = os.path.join(app.config['OUTPUT_FOLDER'], output_filename)
+    
+    video.save(input_path)
+    
+    job_id = str(uuid.uuid4())
+    
+    # Start the analysis in a background thread
+    thread = threading.Thread(
+        target=run_analysis_in_background,
+        args=(job_id, input_path, output_path)
+    )
+    thread.start()
+    
+    # Store initial job status
+    JOBS[job_id] = {'status': 'processing'}
+    
+    # Return the job ID to the client
+    return jsonify({
+        'message': 'Analysis started.',
+        'job_id': job_id,
+        'status_url': url_for('get_analysis_result', job_id=job_id, _external=True)
+    }), 202
 
 @app.route('/results/<job_id>', methods=['GET'])
 def get_analysis_result(job_id):
@@ -393,7 +334,7 @@ def get_analysis_result(job_id):
         video_url = url_for('get_processed_video', filename=job['output_filename'], _external=True)
         return jsonify({
             'status': 'complete',
-            'processed_video_url': video_url,
+        'processed_video_url': video_url,
             'analysis_data': job['stats']
         })
     
@@ -402,12 +343,11 @@ def get_analysis_result(job_id):
 @app.route('/videos/<filename>')
 def get_processed_video(filename):
     """Serves the processed video files."""
-    app.logger.info(f"Serving video file: {filename}")
     return send_file(os.path.join(app.config['OUTPUT_FOLDER'], filename), as_attachment=True)
 
 @app.route('/')
 def index():
-    return 'Cricket Ball Tracking API. POST chunks to /upload.'
+    return 'Cricket Ball Tracking API. POST a video to /analyze.'
 
 @app.route('/health')
 def health_check():
